@@ -1,5 +1,5 @@
-// This Source Code Form is subject to the terms of the
-// GNU General Public License, version 3.0.
+// Copyright (c) 2016, Jörg Knobloch. All rights reserved.
+
 var { AppConstants } = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
 var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
