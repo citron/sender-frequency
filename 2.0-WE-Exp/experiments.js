@@ -1,10 +1,9 @@
-// Copyright (c) 2016, Jörg Knobloch. All rights reserved.
+// Copyright (c) 2016-2024, Jörg Knobloch. All rights reserved.
 
-/* global ExtensionCommon */
+/* global ExtensionCommon Services */
 
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 var { ExtensionSupport } = ChromeUtils.import("resource:///modules/ExtensionSupport.jsm");
-var { ExtensionParent } = ChromeUtils.import("resource://gre/modules/ExtensionParent.jsm");
+var { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
 
 const EXTENSION_NAME = "jorgk@sender-frequency";
 var extension = ExtensionParent.GlobalManager.getExtension(EXTENSION_NAME);
@@ -30,8 +29,7 @@ var SFreq = class extends ExtensionCommon.ExtensionAPI {
         addWindowListener(dummy) {
           // Adds a listener to detect new windows.
           ExtensionSupport.registerWindowListener(EXTENSION_NAME, {
-            chromeURLs: ["chrome://messenger/content/messenger.xul",
-              "chrome://messenger/content/messenger.xhtml"],
+            chromeURLs: ["chrome://messenger/content/messenger.xhtml"],
             onLoadWindow: paint,
             onUnloadWindow: unpaint,
           });

@@ -1,10 +1,13 @@
-// Copyright (c) 2016, Jörg Knobloch. All rights reserved.
+// Copyright (c) 2016-2024, Jörg Knobloch. All rights reserved.
 
-var { AppConstants } = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+/* global Services */
+
+const { ThreadPaneColumns } = ChromeUtils.importESModule(
+  "chrome://messenger/content/thread-pane-columns.mjs",
+);
 
 var freq;
-var numMsgs;
+var folder;
 var isSent;
 var noFreq;
 var compareEmailOnly;
@@ -30,160 +33,102 @@ function getAddress(aHeader) {
   return from;
 }
 
-const columnHandler = {
-  init(win) {
-    this.win = win;
-  },
-  getCellText(row, col) {
+var SFreqHdrView = {
+  sortValueForHdr(hdr) { // Numeric value.
+    // @John:
+    // This API is pretty horrible.
+    // How can you request the text or sort order before the view is ready?
+    if (!this.win.gDBView) return "";
+
     if (freq === undefined) return "";
     if (noFreq) return "";
-    if (numMsgs != this.win.gDBView.numMsgsInView) this.cacheFreq();
-    let from = getAddress(this.win.gDBView.getMsgHdrAt(row));
-    if (freq[from] === undefined) {
-      // dump("==== adding new record (1) for |" + from + "|\n");
-      freq[from] = 1;
-    }
-    let c = freq[from];
-    return c.toString();
-  },
-  getSortStringForRow(hdr) {
-    if (freq === undefined) return "";
-    if (noFreq) return "";
-    if (numMsgs != this.win.gDBView.numMsgsInView) this.cacheFreq();
+    if (folder != this.win.gFolder) this.cacheFreq();
     let from = getAddress(hdr);
     if (freq[from] === undefined) {
-      // dump("==== adding new record (2) for |" + from + "|\n");
       freq[from] = 1;
     }
-    let c = freq[from];
-    return `${(`00000000${c}`).slice(-8)}|${from}`;
+    return freq[from];
   },
-  isString() { return true; },
-  getCellProperties(row, col, props) {},
-  getRowProperties(row, props) {},
-  getImageSrc(row, col) { return null; },
-  getSortLongForRow(hdr) { return 0; },
 
   cacheFreq() {
     freq = [];
-    numMsgs = this.win.gDBView.numMsgsInView;
     isSent = false;
     noFreq = false;
 
-    if (numMsgs > 0) {
-      let folder = this.win.gDBView.getFolderForViewIndex(0);
-      if (folder.isSpecialFolder(Ci.nsMsgFolderFlags.SentMail, true)) isSent = true;
-    }
-
-    let label   = isSent ? "RFreq" : "SFreq";
-    let tooltip = isSent ? "Click to sort by Recipient frequency" : "Click to sort by Sender frequency";
-    this.win.document.getElementById("fromFreq").setAttribute("label", label);
-    this.win.document.getElementById("fromFreq").setAttribute("tooltiptext", tooltip);
-
-    // Skip grouped views.
-    if (this.win.gDBView.viewFlags & Ci.nsMsgViewFlagsType.kGroupBySort) {
-      numMsgs = 0;
+    folder = this.win.gFolder;
+    if (!folder) {
       noFreq = true;
       return;
     }
+    if (folder.isSpecialFolder(Ci.nsMsgFolderFlags.SentMail, true)) isSent = true;
 
-    for (let i = 0; i < numMsgs; i++) {
+    // Skip grouped views.
+    if (this.win.gDBView.viewFlags & Ci.nsMsgViewFlagsType.kGroupBySort) {
+      noFreq = true;
+      return;
+    }
+    for (let i = 0; i < this.win.gDBView.numMsgsInView; i++) {
       try {
         let from = getAddress(this.win.gDBView.getMsgHdrAt(i));
         if (freq[from] === undefined) {
-          // dump("==== adding new record (3) for |" + from + "|\n");
           freq[from] = 1;
         } else {
           freq[from]++;
         }
       } catch (e) {
-        dump(`Couldn't retrieve header at ${i}\n`);
-      }
-    }
-  },
-};
-
-const columnOverlay = {
-  init(win) {
-    this.win = win;
-    this.addColumn(win);
-  },
-
-  destroy() {
-    this.destroyColumn();
-  },
-
-  observe(aMsgFolder, aTopic, aData) {
-    try {
-      columnHandler.init(this.win);
-      this.win.gDBView.addColumnHandler("fromFreq", columnHandler);
-      columnHandler.cacheFreq();
-    } catch (ex) {
-      console.error(ex);
-      throw new Error("Cannot add column handler");
-    }
-  },
-
-  addColumn(win) {
-    if (win.document.getElementById("fromFreq")) return;
-
-    const treeCol = win.document.createXULElement("treecol");
-    treeCol.setAttribute("id", "fromFreq");
-    treeCol.setAttribute("persist", "hidden ordinal sortDirection width");
-    treeCol.setAttribute("flex", "2");
-    treeCol.setAttribute("closemenu", "none");
-    treeCol.setAttribute("label", "SFreq");
-    treeCol.setAttribute("tooltiptext", "Click to sort by Sender frequency");
-
-    const threadCols = win.document.getElementById("threadCols");
-    threadCols.appendChild(treeCol);
-
-    // Restore persisted attributes.
-    let attributes = Services.xulStore.getAttributeEnumerator(
-      this.win.document.URL,
-      "fromFreq",
-    );
-    for (let attribute of attributes) {
-      let value = Services.xulStore.getValue(this.win.document.URL, "fromFreq", attribute);
-      // See Thunderbird bug 1607575 and bug 1612055.
-      if (attribute != "ordinal" || parseInt(AppConstants.MOZ_APP_VERSION, 10) < 74) {
-        treeCol.setAttribute(attribute, value);
-      } else {
-        treeCol.ordinal = value;
+        console.error(e);
       }
     }
 
-    Services.obs.addObserver(this, "MsgCreateDBView", false);
+    this.setButton();
   },
 
-  destroyColumn() {
-    const treeCol = this.win.document.getElementById("fromFreq");
-    if (!treeCol) return;
-    treeCol.remove();
-    Services.obs.removeObserver(this, "MsgCreateDBView");
+  setButton() {
+    let button = this.win.document.getElementById("SFreq-columnButton");
+    if (button) {
+      button.textContent = isSent ? "RFreq" : "SFreq";
+      button.title = isSent ? "Sort by Recipient frequency" : "Sort by Sender frequency";
+    }
   },
-};
 
-var SFreqHdrView = {
-  init(win) {
-    this.win = win;
+  async init(win) {
+    // The following call needs tabmail setup, so it won't work straight away.
+    // It would be nice to listen to "mail-startup-done", but that only fires for the first window.
+    // So let's wait for tabmail and all the other stuff we need.
+    let count = 0;
+    while (
+      count++ < 50 &&
+      // .currentAbout3Pane throws if .currentTabInfo isn't available yet, so test it first.
+      !(
+        win.document.getElementById("tabmail")?.currentTabInfo &&
+        win.document.getElementById("tabmail")?.currentAbout3Pane?.gFolder
+      )
+    ) {
+      await new Promise(r => win.setTimeout(r, 100));
+    }
+    this.win = win.document.getElementById("tabmail")?.currentAbout3Pane;
 
     // Set default preference.
     let defaultsBranch = Services.prefs.getDefaultBranch("extensions.Sfreq.");
     defaultsBranch.setBoolPref("compareEmailOnly", true);
     let valuesBranch = Services.prefs.getBranch("extensions.Sfreq.");
     compareEmailOnly = valuesBranch.getBoolPref("compareEmailOnly");
-    columnOverlay.init(win);
 
-    // Usually the column handler is added when the window loads.
-    // In our setup it's added later and we may miss the first notification.
-    // So we fire one ourserves.
-    if (win.gDBView && win.document.documentElement.getAttribute("windowtype") == "mail:3pane") {
-      Services.obs.notifyObservers(null, "MsgCreateDBView");
-    }
+    this.cacheFreq();
+
+    ThreadPaneColumns.addCustomColumn("SFreq-column", {
+      name: "SFreq",
+      resizable: true,
+      sortable: true,
+      // The sortCallback is used for numeric sort.
+      sortCallback: (msgHdr) => this.sortValueForHdr(msgHdr),
+      textCallback: (msgHdr) => this.sortValueForHdr(msgHdr).toString(),
+    });
+
+    this.setButton();
   },
 
   destroy() {
-    columnOverlay.destroy();
+    ThreadPaneColumns.removeCustomColumn("SFreq-column");
   },
 };
