@@ -7,6 +7,7 @@ const { ThreadPaneColumns } = ChromeUtils.importESModule(
 );
 
 var freq;
+var numMsgs;
 var folder;
 var isSent;
 var noFreq;
@@ -42,7 +43,7 @@ var SFreqHdrView = {
 
     if (freq === undefined) return "";
     if (noFreq) return "";
-    if (folder != this.win.gFolder) this.cacheFreq();
+    if (folder != this.win.gFolder || numMsgs != this.win.gDBView.numMsgsInView) this.cacheFreq();
     let from = getAddress(hdr);
     if (freq[from] === undefined) {
       freq[from] = 1;
@@ -52,6 +53,7 @@ var SFreqHdrView = {
 
   cacheFreq() {
     freq = [];
+    numMsgs = 0;
     isSent = false;
     noFreq = false;
 
@@ -67,7 +69,8 @@ var SFreqHdrView = {
       noFreq = true;
       return;
     }
-    for (let i = 0; i < this.win.gDBView.numMsgsInView; i++) {
+    numMsgs = this.win.gDBView.numMsgsInView;
+    for (let i = 0; i < numMsgs; i++) {
       try {
         let from = getAddress(this.win.gDBView.getMsgHdrAt(i));
         if (freq[from] === undefined) {
