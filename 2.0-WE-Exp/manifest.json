@@ -2,14 +2,14 @@
   "manifest_version": 2,
   "name": "Sender Frequency",
   "description": "Adds a custom column for Sender Frequency to the thread pane",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "author": "Betterbird Project",
   "homepage_url": "https://www.betterbird.eu/addons/",
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
       "id": "jorgk@sender-frequency",
-      "strict_min_version": "115.10.0",
-      "strict_max_version": "115.*"
+      "strict_min_version": "128.0",
+      "strict_max_version": "128.*"
     }
   },
   "experiment_apis": {

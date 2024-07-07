@@ -3,7 +3,7 @@
 /* global Services */
 
 const { ThreadPaneColumns } = ChromeUtils.importESModule(
-  "chrome://messenger/content/thread-pane-columns.mjs",
+  "chrome://messenger/content/ThreadPaneColumns.mjs",
 );
 
 var freq;
