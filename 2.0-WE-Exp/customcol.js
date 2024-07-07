@@ -40,6 +40,7 @@ var SFreqHdrView = {
     // This API is pretty horrible.
     // How can you request the text or sort order before the view is ready?
     if (!this.win.gDBView) return "";
+    if (this.win.gViewWrapper.searching) return "";
 
     if (freq === undefined) return "";
     if (noFreq) return "";
