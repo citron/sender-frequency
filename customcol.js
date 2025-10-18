@@ -12,6 +12,7 @@ var folder;
 var isSent;
 var noFreq;
 var compareEmailOnly;
+var initialised;
 
 function getAddress(aHeader) {
   // .recipients and .author return the raw message header
@@ -36,6 +37,18 @@ function getAddress(aHeader) {
 
 var SFreqHdrView = {
   sortValueForHdr(hdr) { // Numeric value.
+    if (!initialised) {
+      const about3Pane = this.win?.document.getElementById("tabmail")?.currentAbout3Pane;
+      if (!about3Pane || !about3Pane.gDBView) {
+        return "";
+      }
+      this.win = about3Pane;
+
+      console.info("SFreq: Deferred initialise");
+      initialised = true;
+      this.cacheFreq();
+    }
+
     // @John:
     // This API is pretty horrible.
     // How can you request the text or sort order before the view is ready?
@@ -64,6 +77,7 @@ var SFreqHdrView = {
       return;
     }
     if (folder.isSpecialFolder(Ci.nsMsgFolderFlags.SentMail, true)) isSent = true;
+    this.setButton();
 
     // Skip grouped views.
     if (this.win.gDBView.viewFlags & Ci.nsMsgViewFlagsType.kGroupBySort) {
@@ -83,8 +97,6 @@ var SFreqHdrView = {
         console.error(e);
       }
     }
-
-    this.setButton();
   },
 
   setButton() {
@@ -108,17 +120,17 @@ var SFreqHdrView = {
         win.document.getElementById("tabmail")?.currentAbout3Pane?.gFolder
       )
     ) {
-      await new Promise(r => win.setTimeout(r, 100));
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => win.setTimeout(r, 100));
     }
     this.win = win.document.getElementById("tabmail")?.currentAbout3Pane;
+    initialised = !!this.win;
 
     // Set default preference.
     let defaultsBranch = Services.prefs.getDefaultBranch("extensions.Sfreq.");
     defaultsBranch.setBoolPref("compareEmailOnly", true);
     let valuesBranch = Services.prefs.getBranch("extensions.Sfreq.");
     compareEmailOnly = valuesBranch.getBoolPref("compareEmailOnly");
-
-    this.cacheFreq();
 
     ThreadPaneColumns.addCustomColumn("SFreq-column", {
       name: "SFreq",
@@ -129,7 +141,13 @@ var SFreqHdrView = {
       textCallback: (msgHdr) => this.sortValueForHdr(msgHdr).toString(),
     });
 
-    this.setButton();
+    if (!initialised) {
+      console.info("SFreq: Can't initialise, no 3pane active");
+      // Keep window for later.
+      this.win = win;
+    } else {
+      this.cacheFreq();
+    }
   },
 
   destroy() {
