@@ -3,10 +3,8 @@
 /* global ExtensionCommon Services */
 
 var { ExtensionSupport } = ChromeUtils.importESModule("resource:///modules/ExtensionSupport.sys.mjs");
-var { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
 
 const EXTENSION_NAME = "jorgk@sender-frequency";
-var extension = ExtensionParent.GlobalManager.getExtension(EXTENSION_NAME);
 
 // Implements the functions defined in the experiments section of schema.json.
 var SFreq = class extends ExtensionCommon.ExtensionAPI {
@@ -24,13 +22,14 @@ var SFreq = class extends ExtensionCommon.ExtensionAPI {
   }
 
   getAPI(context) {
+    const extension = context.extension;
     return {
       SFreq: {
         addWindowListener(dummy) {
           // Adds a listener to detect new windows.
           ExtensionSupport.registerWindowListener(EXTENSION_NAME, {
             chromeURLs: ["chrome://messenger/content/messenger.xhtml"],
-            onLoadWindow: paint,
+            onLoadWindow: (win) => paint(win, extension),
             onUnloadWindow: unpaint,
           });
         },
@@ -39,13 +38,16 @@ var SFreq = class extends ExtensionCommon.ExtensionAPI {
   }
 };
 
-function paint(win) {
+function paint(win, extension) {
   win.SFreq = {};
   Services.scriptloader.loadSubScript(extension.getURL("customcol.js"), win.SFreq);
   win.SFreq.SFreqHdrView.init(win);
 }
 
 function unpaint(win) {
+  if (!win.SFreq?.SFreqHdrView) {
+    return;
+  }
   win.SFreq.SFreqHdrView.destroy();
   delete win.SFreq;
 }

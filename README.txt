@@ -14,3 +14,10 @@ The add-on adds a custom column "SFreq" for the Sender Frequency to the thread p
 In Sent folders a "RFreq" column is added for the Recipient Frequency.
 
 This add-on requires Thunderbird 68 or higher.
+
+Release notes
+-------------
+
+3.1.3 (2026-02-24)
+- Compatibility update for Thunderbird 147.0.2.
+- Improved robustness of window lifecycle handling in the experiment API.
